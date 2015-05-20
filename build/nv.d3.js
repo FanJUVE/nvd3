@@ -9588,18 +9588,13 @@ nv.models.scatter = function() {
             // create the points
             var points = groups.selectAll('path.nv-point')
                 .data(function(d) { return d.values });
-            console.log(points);
-            console.log(points.enter());
+            //console.log(points);
+            //console.log(points.enter());
             points.enter().append('path')
                 .style('fill', function (d,i) { return d.color })
                 .style('stroke', function (d,i) { return d.color })
                 .attr('transform', function(d,i) {
-                    if(d.y != null) {
-                      console.log(111);
-                      return 'translate(' + x0(getX(d, i)) + ',' + y0(getY(d, i)) + ')'
-                    }
-                    else
-                      return false
+                  return 'translate(' + x0(getX(d, i)) + ',' + y0(getY(d, i)) + ')'
                 })
                 .attr('d',
                     nv.utils.symbol()

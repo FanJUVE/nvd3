@@ -1,4 +1,4 @@
-/* nvd3 version 1.7.1(https://github.com/novus/nvd3) 2015-02-08 */
+/* nvd3 version 1.7.1(https://github.com/novus/nvd3) 2015-02-05 */
 (function(){
 
 // set up main nv object on window
@@ -4512,6 +4512,7 @@ nv.models.line = function() {
         , y //can be accessed via chart.yScale()
         , interpolate = "linear" // controls the line interpolation
         , duration = 250
+        , pointSize = 16
         , dispatch = d3.dispatch('elementClick', 'elementMouseover', 'elementMouseout', 'renderEnd')
         ;
 
@@ -4535,6 +4536,7 @@ nv.models.line = function() {
 
 
     function chart(selection) {
+        scatter.pointSize(pointSize);
         renderWatch.reset();
         renderWatch.models(scatter);
         selection.each(function(data) {
@@ -4546,6 +4548,7 @@ nv.models.line = function() {
             // Setup Scales
             x = scatter.xScale();
             y = scatter.yScale();
+
 
             x0 = x0 || x;
             y0 = y0 || y;
@@ -4674,6 +4677,7 @@ nv.models.line = function() {
         // simple options, just get/set the necessary values
         width:      {get: function(){return width;}, set: function(_){width=_;}},
         height:     {get: function(){return height;}, set: function(_){height=_;}},
+        pointSize:  {get: function(){return pointSize;}, set: function(_){pointSize=_;}},
         defined: {get: function(){return defined;}, set: function(_){defined=_;}},
         interpolate:      {get: function(){return interpolate;}, set: function(_){interpolate=_;}},
         clipEdge:    {get: function(){return clipEdge;}, set: function(_){clipEdge=_;}},
@@ -7807,6 +7811,8 @@ nv.models.multiChart = function() {
         noData = 'No Data Available.',
         yDomain1,
         yDomain2,
+        xDomain,
+        pointSize,
         getX = function(d) { return d.x },
         getY = function(d) { return d.y},
         interpolate = 'monotone'
@@ -7900,7 +7906,7 @@ nv.models.multiChart = function() {
                     })
                 });
 
-            x   .domain(d3.extent(d3.merge(series1.concat(series2)), function(d) { return d.x } ))
+            x   .domain(xDomain || d3.extent(d3.merge(series1.concat(series2)), function(d) { return d.x } ))
                 .range([0, availableWidth]);
 
             var wrap = container.selectAll('g.wrap.multiChart').data([data]);
@@ -7909,12 +7915,12 @@ nv.models.multiChart = function() {
             gEnter.append('g').attr('class', 'x axis');
             gEnter.append('g').attr('class', 'y1 axis');
             gEnter.append('g').attr('class', 'y2 axis');
+          gEnter.append('g').attr('class', 'bars1Wrap');
+          gEnter.append('g').attr('class', 'bars2Wrap');
+          gEnter.append('g').attr('class', 'stack1Wrap');
+          gEnter.append('g').attr('class', 'stack2Wrap');
             gEnter.append('g').attr('class', 'lines1Wrap');
             gEnter.append('g').attr('class', 'lines2Wrap');
-            gEnter.append('g').attr('class', 'bars1Wrap');
-            gEnter.append('g').attr('class', 'bars2Wrap');
-            gEnter.append('g').attr('class', 'stack1Wrap');
-            gEnter.append('g').attr('class', 'stack2Wrap');
             gEnter.append('g').attr('class', 'legendWrap');
 
             var g = wrap.select('g');
@@ -7949,11 +7955,13 @@ nv.models.multiChart = function() {
                 .width(availableWidth)
                 .height(availableHeight)
                 .interpolate(interpolate)
+                .pointSize(pointSize)
                 .color(color_array.filter(function(d,i) { return !data[i].disabled && data[i].yAxis == 1 && data[i].type == 'line'}));
             lines2
                 .width(availableWidth)
                 .height(availableHeight)
                 .interpolate(interpolate)
+                .pointSize(pointSize)
                 .color(color_array.filter(function(d,i) { return !data[i].disabled && data[i].yAxis == 2 && data[i].type == 'line'}));
             bars1
                 .width(availableWidth)
@@ -8193,10 +8201,12 @@ nv.models.multiChart = function() {
         showLegend: {get: function(){return showLegend;}, set: function(_){showLegend=_;}},
         yDomain1:      {get: function(){return yDomain1;}, set: function(_){yDomain1=_;}},
         yDomain2:    {get: function(){return yDomain2;}, set: function(_){yDomain2=_;}},
+        xDomain:    {get: function(){return xDomain;}, set: function(_){xDomain=_;}},
         tooltips:    {get: function(){return tooltips;}, set: function(_){tooltips=_;}},
         tooltipContent:    {get: function(){return tooltip;}, set: function(_){tooltip=_;}},
         noData:    {get: function(){return noData;}, set: function(_){noData=_;}},
         interpolate:    {get: function(){return interpolate;}, set: function(_){interpolate=_;}},
+        pointSize:    {get: function(){return pointSize;}, set: function(_){pointSize=_;}},
 
         // options that require extra logic in the setter
         margin: {get: function(){return margin;}, set: function(_){
@@ -9578,11 +9588,18 @@ nv.models.scatter = function() {
             // create the points
             var points = groups.selectAll('path.nv-point')
                 .data(function(d) { return d.values });
+            console.log(points);
+            console.log(points.enter());
             points.enter().append('path')
                 .style('fill', function (d,i) { return d.color })
                 .style('stroke', function (d,i) { return d.color })
                 .attr('transform', function(d,i) {
-                    return 'translate(' + x0(getX(d,i)) + ',' + y0(getY(d,i)) + ')'
+                    if(d.y != null) {
+                      console.log(111);
+                      return 'translate(' + x0(getX(d, i)) + ',' + y0(getY(d, i)) + ')'
+                    }
+                    else
+                      return false
                 })
                 .attr('d',
                     nv.utils.symbol()
@@ -9602,6 +9619,9 @@ nv.models.scatter = function() {
                     .classed('nv-point-' + i, true)
                     .classed('hover',false)
                 ;
+                if(d.y == null)
+                  d3.select(this)
+                      .classed('nv-point-hide', true)
             });
             points
                 .watchTransition(renderWatch, 'scatter points')

@@ -407,6 +407,9 @@ svg.nvd3-svg {
   stroke-opacity: .95 !important;
 }
 
+.nvd3 .nv-point-hide {
+  display: none !important;
+}
 
 .nvd3 .nv-point-paths path {
   stroke: #aaa;

@@ -6273,6 +6273,7 @@ nv.models.multiBar = function() {
         , id = Math.floor(Math.random() * 10000) //Create semi-unique ID in case user doesn't select one
         , getX = function(d) { return d.x }
         , getY = function(d) { return d.y }
+        , getYerr = function(d) { return d.yErr }
         , forceY = [0] // 0 is forced by default.. this makes sense for the majority of bar graphs... user can always do chart.forceY([]) to remove
         , clipEdge = true
         , stacked = false
@@ -6288,6 +6289,7 @@ nv.models.multiBar = function() {
         , yRange
         , groupSpacing = 0.1
         , dispatch = d3.dispatch('chartClick', 'elementClick', 'elementDblClick', 'elementMouseover', 'elementMouseout', 'renderEnd')
+        , valueFormat = d3.format(',.2f')
         ;
 
     //============================================================
@@ -6431,20 +6433,23 @@ nv.models.multiBar = function() {
                 .style('stroke-opacity', 1)
                 .style('fill-opacity', 0.75);
 
-            var bars = groups.selectAll('rect.nv-bar')
-                .data(function(d) { return (hideable && !data.length) ? hideable.values : d.values });
+            // var bars = groups.selectAll('rect.nv-bar')
+            //     .data(function(d) { return (hideable && !data.length) ? hideable.values : d.values });
+            // bars.exit().remove();
+
+            var bars = groups.selectAll('g.nv-bar')
+                .data(function(d) { return d.values });
             bars.exit().remove();
 
-            var barsEnter = bars.enter().append('rect')
-                    .attr('class', function(d,i) { return getY(d,i) < 0 ? 'nv-bar negative' : 'nv-bar positive'})
-                    .attr('x', function(d,i,j) {
-                        return stacked ? 0 : (j * x.rangeBand() / data.length )
-                    })
-                    .attr('y', function(d) { return y0(stacked ? d.y0 : 0) || 0 })
-                    .attr('height', 0)
-                    .attr('width', x.rangeBand() / (stacked ? 1 : data.length) )
-                    .attr('transform', function(d,i) { return 'translate(' + x(getX(d,i)) + ',0)'; })
-                ;
+            // var barsEnter = bars.enter().append('g')
+            //         .attr('transform', function(d,i) { return 'translate(' + x(getX(d,i)) + ',0)'; })
+            //     ;
+
+            var barsEnter = bars.enter().append('g')
+                .attr('transform', function(d,i,j) {
+                    return 'translate(' + (x(getX(d,i)) + x.rangeBand() * .05 ) + ', ' + y(0) + ')'
+                })
+
             bars
                 .style('fill', function(d,i,j){ return color(d, j, i);  })
                 .style('stroke', function(d,i,j){ return color(d, j, i); })
@@ -6495,9 +6500,55 @@ nv.models.multiBar = function() {
                     });
                     d3.event.stopPropagation();
                 });
+
+
+            barsEnter.append('rect')
+                    // .attr('x', function(d,i,j) {
+                        // return stacked ? 0 : (j * x.rangeBand() / data.length )
+                    // })
+                    // .attr('y', function(d) { return y0(stacked ? d.y0 : 0) || 0 })
+                    .attr('height', 0)
+                    .attr('width', x.rangeBand() / (stacked ? 1 : data.length) )
+                    // .attr('transform', function(d,i) { return 'translate(' + x(getX(d,i)) + ',0)'; })
+
+
+            barsEnter.append('text');
+
+            bars.select('text')
+                    .text(function(d,i) { return valueFormat(getY(d,i)) })
+                    .watchTransition(renderWatch, 'discreteBar: bars text')
+                    .attr('x', x.rangeBand() * .9 / 2)
+                    .attr('y', function(d,i) { return getY(d,i) < 0 ? y(getY(d,i)) - y(0) + 12 : -4 })
+
+
+            // if (showValues && !stacked) {
+                // bars.select('text')
+                //     .attr('text-anchor', function(d,i) { return getY(d,i) < 0 ? 'end' : 'start' })
+                //     .attr('y', x.rangeBand() / (data.length * 2))
+                //     .attr('dy', '.32em')
+                //     .html(function(d,i) {
+                //         var t = valueFormat(getY(d,i))
+                //             , yerr = getYerr(d,i);
+                //         if (yerr === undefined)
+                //             return t;
+                //         if (!yerr.length)
+                //             return t + '&plusmn;' + valueFormat(Math.abs(yerr));
+                //         return t + '+' + valueFormat(Math.abs(yerr[1])) + '-' + valueFormat(Math.abs(yerr[0]));
+                //     });
+                // bars.watchTransition(renderWatch, 'multibarhorizontal: bars')
+                //     .select('text')
+                //     .attr('x', function(d,i) { return getY(d,i) < 0 ? -4 : y(getY(d,i)) - y(0) + 4 })
+            // } else {
+                // bars.selectAll('text').text('');
+            // }
+
             bars
                 .attr('class', function(d,i) { return getY(d,i) < 0 ? 'nv-bar negative' : 'nv-bar positive'})
                 .attr('transform', function(d,i) { return 'translate(' + x(getX(d,i)) + ',0)'; })
+                .select('rect')
+                .attr('class', 'discreteBar')
+                .watchTransition(renderWatch, 'discreteBar: bars rect')
+                .attr('width', x.rangeBand() * .9 / data.length);
 
             if (barColor) {
                 if (!disabled) disabled = data.map(function() { return true });
@@ -6522,6 +6573,7 @@ nv.models.multiBar = function() {
                     .attr('x', function(d,i) {
                         return stacked ? 0 : (d.series * x.rangeBand() / data.length )
                     })
+                    .select('rect')
                     .attr('width', x.rangeBand() / (stacked ? 1 : data.length) );
             else
                 barSelection
@@ -6536,6 +6588,7 @@ nv.models.multiBar = function() {
                             y(0) - 1 :
                             y(getY(d,i)) || 0;
                     })
+                    .select('rect')
                     .attr('height', function(d,i) {
                         return Math.max(Math.abs(y(getY(d,i)) - y(0)),1) || 0;
                     });

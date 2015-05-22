@@ -7124,6 +7124,7 @@
         , yRange
         , duration = 250
         , dispatch = d3.dispatch('chartClick', 'elementClick', 'elementDblClick', 'elementMouseover', 'elementMouseout','renderEnd')
+        , barHeight = null
         ;
 
     //============================================================
@@ -7369,13 +7370,11 @@
                 return 'translate(' +
                     (getY(d,i) < 0 ? y(getY(d,i)) : y(0))
                     + ',' +
-                    (d.series * x.rangeBand() / data.length
-                    +
-                    x(getX(d,i)) )
+                    ( d.series * x.rangeBand() / data.length + x(getX(d,i)) + ((barHeight && d.series != 0) ? barHeight : 2) )
                     + ')'
               })
               .select('rect')
-              .attr('height', x.rangeBand() / data.length )
+              .attr('height', (barHeight) ? barHeight : x.rangeBand() / data.length )
               .attr('width', function(d,i) {
                 return Math.max(Math.abs(y(getY(d,i)) - y(0)),1)
               });
@@ -7420,6 +7419,7 @@
       id:           {get: function(){return id;}, set: function(_){id=_;}},
       valueFormat:  {get: function(){return valueFormat;}, set: function(_){valueFormat=_;}},
       valuePadding: {get: function(){return valuePadding;}, set: function(_){valuePadding=_;}},
+      barHeight: {get: function(){return barHeight;}, set: function(_){barHeight=_;}},
 
       // options that require extra logic in the setter
       margin: {get: function(){return margin;}, set: function(_){
@@ -7859,7 +7859,9 @@
         getY = function(d) { return d.y},
         interpolate = 'monotone',
         pointSize,
-        showValues
+        showValues,
+        valueFormatY2,
+        valueFormatY1
         ;
 
     //============================================================
@@ -8008,6 +8010,7 @@
             .interpolate(interpolate)
             .pointSize(pointSize)
             .showValues(showValues)
+            .valueFormat(valueFormatY2)
             .color(color_array.filter(function(d,i) { return !data[i].disabled && data[i].yAxis == 2 && data[i].type == 'line'}));
         bars1
             .width(availableWidth)
@@ -8256,6 +8259,7 @@
       interpolate:    {get: function(){return interpolate;}, set: function(_){interpolate=_;}},
       pointSize:    {get: function(){return pointSize;}, set: function(_){pointSize=_;}},
       showValues: {get: function(){return showValues;}, set: function(_){showValues=_;}},
+      valueFormatY2: {get: function(){return valueFormatY2;}, set: function(_){valueFormatY2=_;}},
 
       // options that require extra logic in the setter
       margin: {get: function(){return margin;}, set: function(_){
@@ -9336,6 +9340,7 @@
         , useVoronoi   = true
         , duration     = 250
         , showValues   = false
+        , valueFormat = d3.format(',.0f')
         ;
 
 
@@ -9642,10 +9647,10 @@
         if (showValues) {
           points.enter().append('text')
               .attr('text-anchor', 'middle')
-              .text(function(d,i) { return getY(d,i) })
+              .text(function(d,i) { return valueFormat(getY(d,i)) })
               .watchTransition(renderWatch, 'discreteBar: bars text')
               .attr('x', function(d,i) { return x0(getX(d, i)) })
-              .attr('y', function(d,i) { return y(getY(d,i)) - 8  })
+              .attr('y', function(d,i) { return y(getY(d,i)) - 8 })
           ;
         } else {
           points.selectAll('text').remove();
@@ -9761,6 +9766,7 @@
       clipRadius:   {get: function(){return clipRadius;}, set: function(_){clipRadius=_;}},
       id:           {get: function(){return id;}, set: function(_){id=_;}},
       showValues: {get: function(){return showValues;}, set: function(_){showValues=_;}},
+      valueFormat:    {get: function(){return valueFormat;}, set: function(_){valueFormat=_;}},
 
 
       // simple functor options

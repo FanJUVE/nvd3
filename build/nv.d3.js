@@ -8259,6 +8259,7 @@
       interpolate:    {get: function(){return interpolate;}, set: function(_){interpolate=_;}},
       pointSize:    {get: function(){return pointSize;}, set: function(_){pointSize=_;}},
       showValues: {get: function(){return showValues;}, set: function(_){showValues=_;}},
+      valueFormatY1: {get: function(){return valueFormatY1;}, set: function(_){valueFormatY1=_;}},
       valueFormatY2: {get: function(){return valueFormatY2;}, set: function(_){valueFormatY2=_;}},
 
       // options that require extra logic in the setter

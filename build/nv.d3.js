@@ -1473,6 +1473,7 @@
         , dispatch = d3.dispatch('renderEnd')
         , axisRendered = false
         , maxMinRendered = false
+        , textAnchor = false
         ;
     axis
         .scale(scale)
@@ -7125,6 +7126,7 @@
         , duration = 250
         , dispatch = d3.dispatch('chartClick', 'elementClick', 'elementDblClick', 'elementMouseover', 'elementMouseout','renderEnd')
         , barHeight = null
+        , spaceBetweenBarsCoef = null
         ;
 
     //============================================================
@@ -7310,8 +7312,9 @@
         if (showValues && !stacked) {
           bars.select('text')
               .attr('text-anchor', function(d,i) { return getY(d,i) < 0 ? 'end' : 'start' })
-              .attr('y', x.rangeBand() / (data.length * 2))
-              .attr('dy', '.32em')
+              .attr('y', function(d,i) { return ((barHeight) ? barHeight/2 + 10/3 : x.rangeBand() / (data.length * 2)) })
+              //.attr('dy', '.32em')
+              .attr('dy', '.0')
               .html(function(d,i) {
                 var t = valueFormat(getY(d,i))
                     , yerr = getYerr(d,i);
@@ -7332,7 +7335,7 @@
           barsEnter.append('text').classed('nv-bar-label',true);
           bars.select('text.nv-bar-label')
               .attr('text-anchor', function(d,i) { return getY(d,i) < 0 ? 'start' : 'end' })
-              .attr('y', x.rangeBand() / (data.length * 2))
+              .attr('y', (x.rangeBand() + spaceBetweenBarsCoef*2) / (data.length * 2))
               .attr('dy', '.32em')
               .text(function(d,i) { return getX(d,i) });
           bars.watchTransition(renderWatch, 'multibarhorizontal: bars')
@@ -7370,7 +7373,10 @@
                 return 'translate(' +
                     (getY(d,i) < 0 ? y(getY(d,i)) : y(0))
                     + ',' +
-                    ( d.series * x.rangeBand() / data.length + x(getX(d,i)) + ((barHeight && d.series != 0) ? barHeight : 2) )
+                    ( d.series * x.rangeBand() / data.length +
+                      x(getX(d,i)) +
+                      ((spaceBetweenBarsCoef) ? spaceBetweenBarsCoef/2 : 0)
+                    )
                     + ')'
               })
               .select('rect')
@@ -7420,6 +7426,7 @@
       valueFormat:  {get: function(){return valueFormat;}, set: function(_){valueFormat=_;}},
       valuePadding: {get: function(){return valuePadding;}, set: function(_){valuePadding=_;}},
       barHeight: {get: function(){return barHeight;}, set: function(_){barHeight=_;}},
+      spaceBetweenBarsCoef: {get: function(){return spaceBetweenBarsCoef;}, set: function(_){spaceBetweenBarsCoef=_;}},
 
       // options that require extra logic in the setter
       margin: {get: function(){return margin;}, set: function(_){
@@ -7481,6 +7488,7 @@
         , dispatch = d3.dispatch('tooltipShow', 'tooltipHide', 'stateChange', 'changeState','renderEnd')
         , controlWidth = function() { return showControls ? 180 : 0 }
         , duration = 250
+        , textAnchor = {}
         ;
 
     state.stacked = false; // DEPRECATED Maintained for backward compatibility
@@ -7493,6 +7501,7 @@
         .tickPadding(5)
         .highlightZero(false)
         .showMaxMin(false)
+        //.textAnchor(textAnchor)
         .tickFormat(function(d) { return d })
     ;
     yAxis
@@ -7806,6 +7815,7 @@
       tooltipContent:    {get: function(){return tooltip;}, set: function(_){tooltip=_;}},
       defaultState:    {get: function(){return defaultState;}, set: function(_){defaultState=_;}},
       noData:    {get: function(){return noData;}, set: function(_){noData=_;}},
+      textAnchor: {get: function(){return textAnchor;}, set: function(_){textAnchor=_;}},
 
       // options that require extra logic in the setter
       margin: {get: function(){return margin;}, set: function(_){
@@ -9645,16 +9655,23 @@
         var points = groups.selectAll('path.nv-point')
             .data(function(d) { return d.values });
 
+        var texts;
         if (showValues) {
           points.enter().append('text')
               .attr('text-anchor', 'middle')
               .text(function(d,i) { return valueFormat(getY(d,i)) })
-              .watchTransition(renderWatch, 'discreteBar: bars text')
+              .watchTransition(renderWatch, 'Point text')
               .attr('x', function(d,i) { return x0(getX(d, i)) })
               .attr('y', function(d,i) { return y(getY(d,i)) - 8 })
           ;
-        } else {
-          points.selectAll('text').remove();
+
+          texts = groups.selectAll('text')
+              .data(function(d) { return d.values });
+
+          texts.each(function(d,i) {
+            if(d.x == null || d.y == null)
+              d3.select(this).classed('nv-point-hide', true);
+          });
         }
 
         points.enter().append('path')
@@ -9665,10 +9682,9 @@
             })
             .attr('d',
             nv.utils.symbol()
-                .type(getShape)
-                .size(function(d,i) { return z(getSize(d,i)) })
+              .type(getShape)
+              .size(function(d,i) { return z(getSize(d,i)) })
         );
-
 
         points.exit().remove();
         groups.exit().selectAll('path.nv-point')
@@ -9677,27 +9693,27 @@
               return 'translate(' + x(getX(d,i)) + ',' + y(getY(d,i)) + ')'
             })
             .remove();
+
         points.each(function(d,i) {
           d3.select(this)
-              .classed('nv-point', true)
-              .classed('nv-point-' + i, true)
-              .classed('hover',false)
+            .classed('nv-point', true)
+            .classed('nv-point-' + i, true)
+            .classed('hover',false)
           ;
           if(d.y == null || d.x == null)
-            d3.select(this)
-                .classed('nv-point-hide', true)
+            d3.select(this).classed('nv-point-hide', true);
         });
+
         points
-            .watchTransition(renderWatch, 'scatter points')
-            .attr('transform', function(d,i) {
-              //nv.log(d,i,getX(d,i), x(getX(d,i)));
-              return 'translate(' + x(getX(d,i)) + ',' + y(getY(d,i)) + ')'
-            })
-            .attr('d',
-            nv.utils.symbol()
-                .type(getShape)
-                .size(function(d,i) { return z(getSize(d,i)) })
-        );
+          .watchTransition(renderWatch, 'scatter points')
+          .attr('transform', function(d,i) {
+            return 'translate(' + x(getX(d,i)) + ',' + y(getY(d,i)) + ')'
+          })
+          .attr('d',
+          nv.utils.symbol()
+              .type(getShape)
+              .size(function(d,i) { return z(getSize(d,i)) })
+          );
 
         // Delay updating the invisible interactive layer for smoother animation
         clearTimeout(timeoutID); // stop repeat calls to updateInteractiveLayer

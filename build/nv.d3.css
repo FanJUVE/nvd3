@@ -163,6 +163,36 @@ svg.nvd3-svg {
  font: bold 14px Arial;
 }
 
+.nvd3 .nv-text-style {
+    font-size: 10px;
+    width: 100%;
+    height: 12px;
+    text-align: right;
+}
+.nvd3 .nv-text-style.toll {
+    height: 16px;
+}
+.nvd3 .nv-text-style.left {
+    text-align: left;
+    padding-left: 10px;
+}
+.nvd3 .nv-text-style span {
+    display: inline-block;
+    margin-left: 10px;
+}
+.nvd3 .nv-text-style span.ellipsis {
+    overflow: hidden;
+    padding-right: 20px;
+    width: 116px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.nvd3 .nv-text-style span.styled {
+    background: #ebecf0;
+    padding: 1px 5px;
+    border-radius: 3px;
+}
+
 .nvd3 .nv-background {
   fill: white;
   fill-opacity: 0;

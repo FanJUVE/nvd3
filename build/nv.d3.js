@@ -71,6 +71,28 @@
     return arguments[arguments.length - 1];
   };
 
+
+// Add function to replace tag with another tag
+  nv.replaceTargetWith = function replaceTargetWith( targetTag, which, html ) {
+    var newElement = document.createElementNS('http://www.w3.org/2000/svg', which);
+    var newElementText = document.createElement('span');
+    var parent = targetTag.parentNode;
+    var attr = [], i = targetTag.attributes.length;
+    while (i--) {
+      attr.push(targetTag.attributes[i]);
+    }
+    for(var i = 0; i < attr.length; i++) {
+      newElement.setAttribute(attr[i].name, attr[i].value);
+    }
+    newElement.setAttribute('class', 'nv-text-style left');
+    newElementText.className = 'ellipsis';
+    newElementText.innerHTML = targetTag.innerHTML;
+
+    newElement.appendChild(newElementText);
+    parent.appendChild(newElement);
+    parent.removeChild(targetTag);
+  }
+
 // print console warning, should be used by deprecated functions
   nv.deprecated = function(name) {
     if (nv.dev && console && console.warn) {
@@ -1473,7 +1495,8 @@
         , dispatch = d3.dispatch('renderEnd')
         , axisRendered = false
         , maxMinRendered = false
-        , textAnchor = false
+        , ticksSettings = null
+        , textStyle = null
         ;
     axis
         .scale(scale)
@@ -1498,7 +1521,7 @@
         var wrap = container.selectAll('g.nv-wrap.nv-axis').data([data]);
         var wrapEnter = wrap.enter().append('g').attr('class', 'nvd3 nv-wrap nv-axis');
         var gEnter = wrapEnter.append('g');
-        var g = wrap.select('g')
+        var g = wrap.select('g');
 
         if (ticks !== null)
           axis.ticks(ticks);
@@ -1571,6 +1594,7 @@
               var sin = Math.abs(Math.sin(rotateLabels*Math.PI/180));
               var xLabelMargin = (sin ? sin*maxTextWidth : maxTextWidth)+30;
               //Rotate all xTicks
+
               xTicks
                   .attr('transform', function(d,i,j) { return 'rotate(' + rotateLabels + ' 0,0)' })
                   .style('text-anchor', rotateLabels%360 > 0 ? 'start' : 'end');
@@ -1627,6 +1651,7 @@
                 .attr('transform', rotateYLabel ? 'rotate(90)' : '')
                 .attr('y', rotateYLabel ? (-Math.max(margin.right,width) + 12) : -10) //TODO: consider calculating this based on largest tick width... OR at least expose this on chart
                 .attr('x', rotateYLabel ? (scale.range()[0] / 2) : axis.tickPadding());
+
             if (showMaxMin) {
               var axisMaxMin = wrap.selectAll('g.nv-axisMaxMin')
                   .data(scale.domain());
@@ -1698,6 +1723,23 @@
             break;
         }
         axisLabel.text(function(d) { return d });
+
+        if(ticksSettings) {
+          var tickTexts = g.selectAll('g').select("text");
+          tickTexts
+            .attr('dx', ticksSettings.dx)
+            .attr('dy', ticksSettings.dy)
+            .attr('x', ticksSettings.x)
+            .attr('y', ticksSettings.y);
+        }
+
+        // If needed add style to text block on axis ticks (background, elipsis etc.) use foreignObject with HTML
+        if(textStyle) {
+          var tickTexts = g.selectAll('g').select("text");
+          tickTexts.each(function () {
+            nv.replaceTargetWith(this, 'foreignObject', this.innerHTML);
+          });
+        }
 
         if (showMaxMin && (axis.orient() === 'left' || axis.orient() === 'right')) {
           //check if max and min overlap other values, if so, hide the values that overlap
@@ -1785,6 +1827,8 @@
       height:            {get: function(){return height;}, set: function(_){height=_;}},
       ticks:             {get: function(){return ticks;}, set: function(_){ticks=_;}},
       width:             {get: function(){return width;}, set: function(_){width=_;}},
+      ticksSettings:     {get: function(){return ticksSettings;}, set: function(_){ticksSettings=_;}},
+      textStyle:         {get: function(){return textStyle;}, set: function(_){textStyle=_;}},
 
       // options that require extra logic in the setter
       margin: {get: function(){return margin;}, set: function(_){
@@ -7127,6 +7171,7 @@
         , dispatch = d3.dispatch('chartClick', 'elementClick', 'elementDblClick', 'elementMouseover', 'elementMouseout','renderEnd')
         , barHeight = null
         , spaceBetweenBarsCoef = null
+        , textStyle = false
         ;
 
     //============================================================
@@ -7307,14 +7352,43 @@
               });
         }
 
-        barsEnter.append('text');
+        // If needed add style to text block (background, etc.) use foreignObject with HTML
+        // Else - use simple svg text tag
+        if(textStyle == 'right') {
+          var foreignObjects = barsEnter.append('foreignObject');
+          foreignObjects
+              .attr('class', 'nv-text-style')
+              .attr('x', -2)
+              .attr('y', function(d,i) {
+                return (barHeight) ? (barHeight - this.offsetHeight) / 2 + 1 : x.rangeBand() / (data.length * 2);
+              });
+        } else if(textStyle == 'block') {
+          var foreignObjects = barsEnter.append('foreignObject');
+          foreignObjects
+              .attr('class', 'nv-text-style toll left')
+              .attr('x', function(d,i) { return getY(d,i) < 0 ? -4 : y(getY(d,i)) - y(0) + 4 })
+              .attr('y', function(d,i) {
+                return (barHeight) ? (barHeight - this.offsetHeight) / 2 + 1 : x.rangeBand() / (data.length * 2);
+              });
+        } else {
+          barsEnter.append('text');
+        }
 
         if (showValues && !stacked) {
-          bars.select('text')
+          var textField = bars.select('text')
               .attr('text-anchor', function(d,i) { return getY(d,i) < 0 ? 'end' : 'start' })
               .attr('y', function(d,i) { return ((barHeight) ? barHeight/2 + 10/3 : x.rangeBand() / (data.length * 2)) })
-              //.attr('dy', '.32em')
-              .attr('dy', '.0')
+              .attr('dy', '.0');
+          bars.watchTransition(renderWatch, 'multibarhorizontal: bars')
+              .select('text')
+              .attr('x', function(d,i) { return getY(d,i) < 0 ? -4 : y(getY(d,i)) - y(0) + 4 })
+
+          if(textStyle) {
+            //foreignObjects
+            textField = foreignObjects;
+          }
+
+          textField
               .html(function(d,i) {
                 var t = valueFormat(getY(d,i))
                     , yerr = getYerr(d,i);
@@ -7324,9 +7398,6 @@
                   return t + '&plusmn;' + valueFormat(Math.abs(yerr));
                 return t + '+' + valueFormat(Math.abs(yerr[1])) + '-' + valueFormat(Math.abs(yerr[0]));
               });
-          bars.watchTransition(renderWatch, 'multibarhorizontal: bars')
-              .select('text')
-              .attr('x', function(d,i) { return getY(d,i) < 0 ? -4 : y(getY(d,i)) - y(0) + 4 })
         } else {
           bars.selectAll('text').text('');
         }
@@ -7427,6 +7498,7 @@
       valuePadding: {get: function(){return valuePadding;}, set: function(_){valuePadding=_;}},
       barHeight: {get: function(){return barHeight;}, set: function(_){barHeight=_;}},
       spaceBetweenBarsCoef: {get: function(){return spaceBetweenBarsCoef;}, set: function(_){spaceBetweenBarsCoef=_;}},
+      textStyle: {get: function(){return textStyle;}, set: function(_){textStyle=_;}},
 
       // options that require extra logic in the setter
       margin: {get: function(){return margin;}, set: function(_){
@@ -7488,7 +7560,6 @@
         , dispatch = d3.dispatch('tooltipShow', 'tooltipHide', 'stateChange', 'changeState','renderEnd')
         , controlWidth = function() { return showControls ? 180 : 0 }
         , duration = 250
-        , textAnchor = {}
         ;
 
     state.stacked = false; // DEPRECATED Maintained for backward compatibility
@@ -7496,12 +7567,12 @@
     multibar
         .stacked(stacked)
     ;
+
     xAxis
         .orient('left')
         .tickPadding(5)
         .highlightZero(false)
         .showMaxMin(false)
-        //.textAnchor(textAnchor)
         .tickFormat(function(d) { return d })
     ;
     yAxis
@@ -7815,7 +7886,6 @@
       tooltipContent:    {get: function(){return tooltip;}, set: function(_){tooltip=_;}},
       defaultState:    {get: function(){return defaultState;}, set: function(_){defaultState=_;}},
       noData:    {get: function(){return noData;}, set: function(_){noData=_;}},
-      textAnchor: {get: function(){return textAnchor;}, set: function(_){textAnchor=_;}},
 
       // options that require extra logic in the setter
       margin: {get: function(){return margin;}, set: function(_){

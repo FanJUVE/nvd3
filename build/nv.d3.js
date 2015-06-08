@@ -6556,7 +6556,7 @@
 
         if (showValues && !stacked) {
           barsEnter.append('text')
-            .style('text-anchor', 'middle');
+            .style('text-anchor', 'end');
 
           bars.select('text')
             .text(function (d, i) {

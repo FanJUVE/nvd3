@@ -73,7 +73,7 @@
 
 
 // Add function to replace tag with another tag
-  nv.replaceTargetWith = function replaceTargetWith( targetTag, which, html ) {
+  nv.replaceTargetWith = function replaceTargetWith( targetTag, which, html, options ) {
     var newElement = document.createElementNS('http://www.w3.org/2000/svg', which);
     var newElementText = document.createElement('span');
     var parent = targetTag.parentNode;
@@ -84,7 +84,8 @@
     for(var i = 0; i < attr.length; i++) {
       newElement.setAttribute(attr[i].name, attr[i].value);
     }
-    newElement.setAttribute('class', 'nv-text-style left');
+    newElement.setAttribute('class', 'nv-text-style left ' + ((options && options.classes) ? options.classes : ''));
+    if(options && options.styles) newElement.setAttribute('style', options.styles);
     newElementText.className = 'ellipsis';
     newElementText.innerHTML = targetTag.innerHTML;
 
@@ -1497,6 +1498,7 @@
         , maxMinRendered = false
         , ticksSettings = null
         , textStyle = null
+        , axisStyle = null
         ;
     axis
         .scale(scale)
@@ -1741,6 +1743,30 @@
           });
         }
 
+
+        // Styling axis label name
+        if(axisStyle === 'x') {
+          axisLabel.each(function () {
+            this.setAttribute('x', -5);
+            this.setAttribute('y', 0);
+            nv.replaceTargetWith(this, 'foreignObject', this.innerHTML, {styles: 'width:95%; text-align:right;', classes: '__axis-label __x'});
+          });
+        }
+        if(axisStyle === 'y1') {
+          axisLabel.each(function () {
+            this.setAttribute('x', -60);
+            this.setAttribute('y', -50);
+            nv.replaceTargetWith(this, 'foreignObject', this.innerHTML, {styles: 'width:95%; text-align:left;', classes: '__axis-label __y1'});
+          });
+        }
+        if(axisStyle === 'y2') {
+          axisLabel.each(function () {
+            this.setAttribute('x', 15);
+            this.setAttribute('y', -50);
+            nv.replaceTargetWith(this, 'foreignObject', this.innerHTML, {styles: 'width:95%; text-align:left;', classes: '__axis-label __y2'});
+          });
+        }
+
         if (showMaxMin && (axis.orient() === 'left' || axis.orient() === 'right')) {
           //check if max and min overlap other values, if so, hide the values that overlap
           g.selectAll('g') // the g's wrapping each tick
@@ -1829,6 +1855,7 @@
       width:             {get: function(){return width;}, set: function(_){width=_;}},
       ticksSettings:     {get: function(){return ticksSettings;}, set: function(_){ticksSettings=_;}},
       textStyle:         {get: function(){return textStyle;}, set: function(_){textStyle=_;}},
+      axisStyle:         {get: function(){return axisStyle;}, set: function(_){axisStyle=_;}},
 
       // options that require extra logic in the setter
       margin: {get: function(){return margin;}, set: function(_){

@@ -1496,9 +1496,11 @@
         , dispatch = d3.dispatch('renderEnd')
         , axisRendered = false
         , maxMinRendered = false
-        , ticksSettings = null
-        , textStyle = null
-        , axisStyle = null
+        , ticksSettings = null  // Coordinates Settings for each tick (x, y, dx, dy)
+        , textStyle = null  // Is nessarry styled text blocks
+        , axisStyle = null  // Which axis need be styled
+        , ticksIndents = {} // Indents for each tick
+        , tickForceAligment = null   // Force align ticks to left, right, bottom or top independently of other params
         ;
     axis
         .scale(scale)
@@ -1524,6 +1526,7 @@
         var wrapEnter = wrap.enter().append('g').attr('class', 'nvd3 nv-wrap nv-axis');
         var gEnter = wrapEnter.append('g');
         var g = wrap.select('g');
+        var tickTexts;    // Ticks with text
 
         if (ticks !== null)
           axis.ticks(ticks);
@@ -1613,7 +1616,7 @@
             axisLabel
                 .attr('text-anchor', 'middle')
                 .attr('y', xLabelMargin)
-                .attr('x', w/2);
+                .attr('x', w + 50);
             if (showMaxMin) {
               //if (showMaxMin && !isOrdinal) {
               var axisMaxMin = wrap.selectAll('g.nv-axisMaxMin')
@@ -1626,7 +1629,7 @@
                     return 'translate(' + nv.utils.NaNtoZero((scale(d) + (isOrdinal ? scale.rangeBand() / 2 : 0))) + ',0)'
                   })
                   .select('text')
-                  .attr('dy', '.71em')
+                  .attr('dy', ticksIndents.y || '.71em')
                   .attr('y', axis.tickPadding())
                   .attr('transform', function(d,i,j) { return 'rotate(' + rotateLabels + ' 0,0)' })
                   .style('text-anchor', rotateLabels ? (rotateLabels%360 > 0 ? 'start' : 'end') : 'middle')
@@ -1645,14 +1648,25 @@
                     return 'translate(0,' + (i % 2 == 0 ? '0' : '12') + ')'
                   });
 
+            xTicks.each(function(d,i){
+              this.setAttribute('dy', ticksIndents.y || axis.tickPadding());
+            });
+
             break;
           case 'right':
             axisLabel.enter().append('text').attr('class', 'nv-axislabel');
             axisLabel
                 .style('text-anchor', rotateYLabel ? 'middle' : 'begin')
                 .attr('transform', rotateYLabel ? 'rotate(90)' : '')
-                .attr('y', rotateYLabel ? (-Math.max(margin.right,width) + 12) : -10) //TODO: consider calculating this based on largest tick width... OR at least expose this on chart
+                .attr('y', rotateYLabel ? (-Math.max(margin.right,width) + 12) : -10 - axisLabelDistance) //TODO: consider calculating this based on largest tick width... OR at least expose this on chart
                 .attr('x', rotateYLabel ? (scale.range()[0] / 2) : axis.tickPadding());
+
+            // Set paddings for x and y of ticks
+            var yTicks = g.selectAll('g').select("text");
+            yTicks.each(function(d,i){
+              this.setAttribute('dy', ticksIndents.y || axis.tickPadding());
+              this.setAttribute('dx', ticksIndents.x - axis.tickPadding() || 0);
+            });
 
             if (showMaxMin) {
               var axisMaxMin = wrap.selectAll('g.nv-axisMaxMin')
@@ -1667,7 +1681,7 @@
                   .select('text')
                   .attr('dy', '.32em')
                   .attr('y', 0)
-                  .attr('x', axis.tickPadding())
+                  .attr('x', ticksIndents.x || axis.tickPadding())
                   .style('text-anchor', 'start')
                   .text(function(d,i) {
                     var v = fmt(d);
@@ -1683,19 +1697,28 @@
             break;
           case 'left':
             /*
-             //For dynamically placing the label. Can be used with dynamically-sized chart axis margins
-             var yTicks = g.selectAll('g').select("text");
-             yTicks.each(function(d,i){
-             var labelPadding = this.getBoundingClientRect().width + axis.tickPadding() + 16;
-             if(labelPadding > width) width = labelPadding;
-             });
-             */
+            //For dynamically placing the label. Can be used with dynamically-sized chart axis margins
+            var yTicks = g.selectAll('g').select("text");
+            yTicks.each(function(d,i){
+            var labelPadding = this.getBoundingClientRect().width + axis.tickPadding() + 16;
+            if(labelPadding > width) width = labelPadding;
+            });
+            */
             axisLabel.enter().append('text').attr('class', 'nv-axislabel');
             axisLabel
                 .style('text-anchor', rotateYLabel ? 'middle' : 'end')
                 .attr('transform', rotateYLabel ? 'rotate(-90)' : '')
-                .attr('y', rotateYLabel ? (-Math.max(margin.left,width) + 25 - (axisLabelDistance || 0)) : -10)
+                .attr('y', rotateYLabel ? (-Math.max(margin.left,width) + 25 - (axisLabelDistance || 0)) : -10 - axisLabelDistance)
                 .attr('x', rotateYLabel ? (-scale.range()[0] / 2) : -axis.tickPadding());
+
+            // Set paddings for x and y of ticks
+            var yTicks = g.selectAll('g').select("text");
+            yTicks.each(function(d,i){
+              this.setAttribute('dy', ticksIndents.y || axis.tickPadding());
+              this.setAttribute('dx', -(ticksIndents.x - axis.tickPadding()) || 0);
+              if(rotateYLabel) this.setAttribute('style', 'text-anchor: start');
+            });
+
             if (showMaxMin) {
               var axisMaxMin = wrap.selectAll('g.nv-axisMaxMin')
                   .data(scale.domain());
@@ -1709,7 +1732,7 @@
                   .select('text')
                   .attr('dy', '.32em')
                   .attr('y', 0)
-                  .attr('x', -axis.tickPadding())
+                  .attr('x', -ticksIndents.x || -axis.tickPadding())
                   .attr('text-anchor', 'end')
                   .text(function(d,i) {
                     var v = fmt(d);
@@ -1726,8 +1749,9 @@
         }
         axisLabel.text(function(d) { return d });
 
+        // Set some coordinates for text tick blocks
         if(ticksSettings) {
-          var tickTexts = g.selectAll('g').select("text");
+          tickTexts = g.selectAll('g').select("text");
           tickTexts
             .attr('dx', ticksSettings.dx)
             .attr('dy', ticksSettings.dy)
@@ -1737,18 +1761,17 @@
 
         // If needed add style to text block on axis ticks (background, elipsis etc.) use foreignObject with HTML
         if(textStyle) {
-          var tickTexts = g.selectAll('g').select("text");
+          tickTexts = g.selectAll('g').select("text");
           tickTexts.each(function () {
             nv.replaceTargetWith(this, 'foreignObject', this.innerHTML);
           });
         }
 
-
         // Styling axis label name
         if(axisStyle === 'x') {
           axisLabel.each(function () {
             this.setAttribute('x', -5);
-            this.setAttribute('y', 0);
+            this.setAttribute('y', ticksIndents.y/2 || 0);
             nv.replaceTargetWith(this, 'foreignObject', this.innerHTML, {styles: 'width:95%; text-align:right;', classes: '__axis-label __x'});
           });
         }
@@ -1856,6 +1879,8 @@
       ticksSettings:     {get: function(){return ticksSettings;}, set: function(_){ticksSettings=_;}},
       textStyle:         {get: function(){return textStyle;}, set: function(_){textStyle=_;}},
       axisStyle:         {get: function(){return axisStyle;}, set: function(_){axisStyle=_;}},
+      ticksIndents:      {get: function(){return ticksIndents;}, set: function(_){ticksIndents=_;}},
+      tickForceAligment: {get: function(){return tickForceAligment;}, set: function(_){tickForceAligment=_;}},
 
       // options that require extra logic in the setter
       margin: {get: function(){return margin;}, set: function(_){
@@ -7199,6 +7224,7 @@
         , barHeight = null
         , spaceBetweenBarsCoef = null
         , textStyle = false
+        , tickForceAligment = null // Force align ticks to left, right, bottom or top independently of other params
         ;
 
     //============================================================
@@ -7398,7 +7424,16 @@
                 return (barHeight) ? (barHeight - this.offsetHeight) / 2 + 1 : x.rangeBand() / (data.length * 2);
               });
         } else {
-          barsEnter.append('text');
+          var valuesText = barsEnter.append('text');
+
+          // If set Force Align -> make align right for all values-text blocks
+          if(tickForceAligment == 'right') {
+            setTimeout(function() {
+              valuesText.each(function () {
+                this.setAttribute('x', availableWidth - 5 - this.getBoundingClientRect().width);
+              });
+            }, 1);
+          }
         }
 
         if (showValues && !stacked) {
@@ -7526,6 +7561,7 @@
       barHeight: {get: function(){return barHeight;}, set: function(_){barHeight=_;}},
       spaceBetweenBarsCoef: {get: function(){return spaceBetweenBarsCoef;}, set: function(_){spaceBetweenBarsCoef=_;}},
       textStyle: {get: function(){return textStyle;}, set: function(_){textStyle=_;}},
+      tickForceAligment: {get: function(){return tickForceAligment;}, set: function(_){tickForceAligment=_;}},
 
       // options that require extra logic in the setter
       margin: {get: function(){return margin;}, set: function(_){

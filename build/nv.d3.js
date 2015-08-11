@@ -7432,7 +7432,7 @@
               valuesText.each(function () {
                 this.setAttribute('x', availableWidth - 5 - this.getBoundingClientRect().width);
               });
-            }, 1);
+            }, 400);
           }
         }
 

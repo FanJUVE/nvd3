@@ -7445,21 +7445,38 @@
               .select('text')
               .attr('x', function(d,i) { return getY(d,i) < 0 ? -4 : y(getY(d,i)) - y(0) + 4 })
 
-          if(textStyle) {
+          if(textStyle === 'block' || textStyle === 'right') {
             //foreignObjects
             textField = foreignObjects;
           }
 
+          //Text with html
           textField
               .html(function(d,i) {
                 var t = valueFormat(getY(d,i))
                     , yerr = getYerr(d,i);
-                if (yerr === undefined)
+                if (yerr === undefined) {
                   return t;
-                if (!yerr.length)
+                } if (!yerr.length) {
                   return t + '&plusmn;' + valueFormat(Math.abs(yerr));
+                }
                 return t + '+' + valueFormat(Math.abs(yerr[1])) + '-' + valueFormat(Math.abs(yerr[0]));
               });
+
+          if(textStyle === 'text') {
+            //Only text
+            textField.text(function(d,i) {
+              var t = valueFormat(getY(d,i))
+                  , yerr = getYerr(d,i);
+              if (yerr === undefined) {
+                return t;
+              } if (!yerr.length) {
+                return t + '&plusmn;' + valueFormat(Math.abs(yerr));
+              }
+              return t + '+' + valueFormat(Math.abs(yerr[1])) + '-' + valueFormat(Math.abs(yerr[0]));
+            });
+          }
+
         } else {
           bars.selectAll('text').text('');
         }
@@ -7521,6 +7538,8 @@
         //store old scales for use in transitions on update
         x0 = x.copy();
         y0 = y.copy();
+
+
 
       });
 
